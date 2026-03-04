@@ -476,7 +476,8 @@
 </div>
 
 <script>
-  const API = 'http://localhost:3000/api';
+  // API endpoint - works on localhost and Vercel
+  const API = window.location.origin + '/api';
 
   // ── Auto-resize textarea ──
   const inp = document.getElementById('userInput');
