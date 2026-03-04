@@ -3,13 +3,13 @@
 // Expone el agente como endpoint POST /api/chat
 // ============================================================
 
-import fs from "fs";
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import fs from "fs";
 
 dotenv.config();
 
@@ -29,22 +29,58 @@ app.get("/", (req, res) => {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /* =====================================================
-   RUTAS DE ARCHIVOS DE PERSISTENCIA
+   ALMACENAMIENTO EN MEMORIA (compatible con Vercel)
 ===================================================== */
-const historyPath = "./chat_history.json";
-const recursosPath = "./recursos.json";
-const eventosPath = "./eventos.json";
+let inMemoryData = {
+  chat_history: { messages: [], params: { temperature: 0.3 }, total_tokens_acumulados: 0 },
+  recursos: [],
+  eventos: []
+};
 
-/* =====================================================
-   FUNCIONES AUXILIARES DE ARCHIVOS
-===================================================== */
-function loadJSON(filePath, defaultValue) {
-  if (!fs.existsSync(filePath)) return defaultValue;
-  return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+// Cargar datos iniciales desde archivos si existen (solo en desarrollo local)
+function initializeData() {
+  try {
+    if (fs.existsSync("./chat_history.json")) {
+      inMemoryData.chat_history = JSON.parse(fs.readFileSync("./chat_history.json", "utf-8"));
+    }
+    if (fs.existsSync("./recursos.json")) {
+      inMemoryData.recursos = JSON.parse(fs.readFileSync("./recursos.json", "utf-8"));
+    }
+    if (fs.existsSync("./eventos.json")) {
+      inMemoryData.eventos = JSON.parse(fs.readFileSync("./eventos.json", "utf-8"));
+    }
+  } catch (e) {
+    console.log("Usando almacenamiento en memoria (sin archivos locales)");
+  }
 }
 
-function saveJSON(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+initializeData();
+
+/* =====================================================
+   FUNCIONES DE ALMACENAMIENTO EN MEMORIA
+===================================================== */
+function getHistory() {
+  return inMemoryData.chat_history;
+}
+
+function saveHistory(data) {
+  inMemoryData.chat_history = data;
+}
+
+function getRecursos() {
+  return inMemoryData.recursos;
+}
+
+function saveRecursos(data) {
+  inMemoryData.recursos = data;
+}
+
+function getEventos() {
+  return inMemoryData.eventos;
+}
+
+function saveEventos(data) {
+  inMemoryData.eventos = data;
 }
 
 /* =====================================================
@@ -142,35 +178,35 @@ const herramientasEventMind = {
 ===================================================== */
 const executableTools = {
   registrarRecurso: (args) => {
-    const recursos = loadJSON(recursosPath, []);
+    const recursos = getRecursos();
     recursos.push({ ...args });
-    saveJSON(recursosPath, recursos);
+    saveRecursos(recursos);
     return { status: "success", message: "Recurso registrado correctamente." };
   },
 
   registrarEvento: (args) => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = getEventos();
     eventos.push({ ...args, recursos_asignados: [] });
-    saveJSON(eventosPath, eventos);
+    saveEventos(eventos);
     return { status: "success", message: "Evento registrado correctamente." };
   },
 
   asignarRecursoEvento: (args) => {
-    const eventos = loadJSON(eventosPath, []);
-    const recursos = loadJSON(recursosPath, []);
+    const eventos = getEventos();
+    const recursos = getRecursos();
     const evento = eventos.find(e => e.nombre === args.evento);
     const recurso = recursos.find(r => r.nombre === args.recurso);
     if (!evento || !recurso) return { status: "error", message: "Evento o recurso no encontrado." };
     if (recurso.cantidad < args.cantidad) return { status: "error", message: "Cantidad insuficiente de recurso." };
     recurso.cantidad -= args.cantidad;
     evento.recursos_asignados.push({ nombre: recurso.nombre, cantidad: args.cantidad, costo_unitario: recurso.costo_unitario });
-    saveJSON(eventosPath, eventos);
-    saveJSON(recursosPath, recursos);
+    saveEventos(eventos);
+    saveRecursos(recursos);
     return { status: "success", message: "Recurso asignado correctamente." };
   },
 
   calcularCostoEvento: (args) => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = getEventos();
     const evento = eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let total = 0;
@@ -179,7 +215,7 @@ const executableTools = {
   },
 
   analizarRiesgoLogistico: (args) => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = getEventos();
     const evento = eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let riesgo = 0;
@@ -193,7 +229,7 @@ const executableTools = {
   },
 
   generarProyeccionFinanciera: (args) => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = getEventos();
     const evento = eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let costo_total = 0;
@@ -204,13 +240,13 @@ const executableTools = {
   },
 
   listarEventos: () => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = getEventos();
     if (eventos.length === 0) return { status: "success", message: "No hay eventos registrados." };
     return { status: "success", total_eventos: eventos.length, eventos };
   },
 
   listarRecursos: () => {
-    const recursos = loadJSON(recursosPath, []);
+    const recursos = getRecursos();
     if (recursos.length === 0) return { status: "success", message: "No hay recursos registrados." };
     return { status: "success", total_recursos: recursos.length, recursos };
   }
@@ -229,23 +265,13 @@ Responde siempre en español, de forma clara y profesional. Tras ejecutar una he
 });
 
 /* =====================================================
-   HISTORIAL
-===================================================== */
-function loadHistory() {
-  return loadJSON(historyPath, { messages: [], params: { temperature: 0.3 }, total_tokens_acumulados: 0 });
-}
-function saveHistory(data) {
-  saveJSON(historyPath, data);
-}
-
-/* =====================================================
    ENDPOINT POST /api/chat
 ===================================================== */
 app.post("/api/chat", async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: "Mensaje requerido." });
 
-  const data = loadHistory();
+  const data = getHistory();
   let totalEntrada = 0;
   let totalSalida = 0;
 
@@ -307,9 +333,9 @@ app.post("/api/chat", async (req, res) => {
    ENDPOINT GET /api/stats  (tokens acumulados)
 ===================================================== */
 app.get("/api/stats", (req, res) => {
-  const data = loadHistory();
-  const eventos = loadJSON(eventosPath, []);
-  const recursos = loadJSON(recursosPath, []);
+  const data = getHistory();
+  const eventos = getEventos();
+  const recursos = getRecursos();
   res.json({
     total_tokens: data.total_tokens_acumulados || 0,
     total_mensajes: data.messages.length,
