@@ -3,10 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Agente de planificación de eventos en vivo con IA",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "chat": "node chat.js"
+    "dev": "node server.js"
   },
   "keywords": [],
   "author": "",
