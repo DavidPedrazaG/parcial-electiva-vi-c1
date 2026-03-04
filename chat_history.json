@@ -1,0 +1,16 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "¿Qué puedes hacer por mí?"
+    },
+    {
+      "role": "model",
+      "content": "¡Hola! Soy EventMind, tu asistente experto en planificación y análisis operativo de eventos en vivo. Puedo ayudarte con las siguientes tareas:\n\n*   **Registrar recursos:** Puedes registrar cualquier recurso logístico que necesites para tus eventos, como personal, equipos, etc., especificando su nombre, tipo, cantidad y costo unitario.\n*   **Crear eventos:** Puedo registrar tus eventos, incluyendo su nombre, tipo, número de asistentes esperados, duración y ubicación.\n*   **Asignar recursos a eventos:** Una vez que tengas recursos y eventos registrados, puedo asignar los recursos necesarios a cada evento.\n*   **Calcular costos de eventos:** Puedo calcular el costo total de un evento basándome en los recursos que le hayas asignado.\n*   **Analizar riesgos logísticos:** Te proporcionaré un análisis del nivel de riesgo logístico para un evento específico.\n*   **Generar proyecciones financieras:** Puedo crear una proyección financiera básica para tu evento, considerando el precio de la entrada.\n*   **Listar eventos y recursos:** También puedo mostrarte un listado de todos los eventos y recursos que tienes registrados en el sistema.\n\n¿En qué te gustaría que te ayude hoy?"
+    }
+  ],
+  "params": {
+    "temperature": 0.3
+  },
+  "total_tokens_acumulados": 55833
+}
