@@ -18,12 +18,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Servir el frontend estático desde la misma carpeta
-app.use(express.static(__dirname));
+// Leer index.html una sola vez (caché en memoria)
+let indexHtmlContent = "";
+function loadIndexHtml() {
+  try {
+    indexHtmlContent = fs.readFileSync(path.join(__dirname, "index.html"), "utf-8");
+  } catch (e) {
+    console.warn("No se pudo cargar index.html");
+    indexHtmlContent = "<h1>EventMind</h1><p>Frontend no disponible</p>";
+  }
+}
+loadIndexHtml();
 
 // Ruta para la raíz
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(indexHtmlContent);
 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
