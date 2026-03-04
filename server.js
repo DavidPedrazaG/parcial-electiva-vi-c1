@@ -21,6 +21,11 @@ app.use(express.json());
 // Servir el frontend estático desde la misma carpeta
 app.use(express.static(__dirname));
 
+// Ruta para la raíz
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /* =====================================================
