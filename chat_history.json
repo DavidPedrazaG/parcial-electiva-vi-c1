@@ -7,18 +7,10 @@
     {
       "role": "model",
       "content": "¡Hola! Soy EventMind, tu asistente experto en planificación y análisis operativo de eventos en vivo. Puedo ayudarte con las siguientes tareas:\n\n*   **Registrar recursos:** Puedes registrar cualquier recurso logístico que necesites para tus eventos, como personal, equipos, etc., especificando su nombre, tipo, cantidad y costo unitario.\n*   **Crear eventos:** Puedo registrar tus eventos, incluyendo su nombre, tipo, número de asistentes esperados, duración y ubicación.\n*   **Asignar recursos a eventos:** Una vez que tengas recursos y eventos registrados, puedo asignar los recursos necesarios a cada evento.\n*   **Calcular costos de eventos:** Puedo calcular el costo total de un evento basándome en los recursos que le hayas asignado.\n*   **Analizar riesgos logísticos:** Te proporcionaré un análisis del nivel de riesgo logístico para un evento específico.\n*   **Generar proyecciones financieras:** Puedo crear una proyección financiera básica para tu evento, considerando el precio de la entrada.\n*   **Listar eventos y recursos:** También puedo mostrarte un listado de todos los eventos y recursos que tienes registrados en el sistema.\n\n¿En qué te gustaría que te ayude hoy?"
-    },
-    {
-      "role": "user",
-      "content": "Explícame cómo registrar un recurso"
-    },
-    {
-      "role": "model",
-      "content": "Para registrar un recurso, necesito que me proporciones la siguiente información:\n\n*   **Nombre del recurso:** Un nombre descriptivo para el recurso (ej. \"Sonido Profesional\", \"Personal de Seguridad\").\n*   **Tipo de recurso:** La categoría a la que pertenece el recurso (ej. \"Equipo\", \"Personal\", \"Transporte\").\n*   **Cantidad:** El número de unidades disponibles de ese recurso.\n*   **Costo unitario:** El costo por cada unidad del recurso.\n\nPor ejemplo, si quisieras registrar 10 unidades de \"Personal de Seguridad\" con un costo de 25 por unidad, me dirías: \"Quiero registrar un recurso llamado Personal de Seguridad, de tipo Personal, con una cantidad de 10 y un costo unitario de 25.\"\n\nUna vez que me des estos datos, usaré la función `registrarRecurso` para añadirlo al sistema."
     }
   ],
   "params": {
     "temperature": 0.3
   },
-  "total_tokens_acumulados": 56871
+  "total_tokens_acumulados": 55833
 }

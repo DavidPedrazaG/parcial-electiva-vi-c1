@@ -2,17 +2,13 @@
   "name": "eventmind",
   "version": "1.0.0",
   "type": "module",
-  "description": "Agente de planificación de eventos en vivo con IA",
   "scripts": {
     "dev": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.4",
-    "express": "^5.2.1"
+    "dotenv": "^17.3.1",
+    "express": "^4.18.2"
   }
 }
