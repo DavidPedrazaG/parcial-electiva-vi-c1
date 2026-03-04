@@ -358,14 +358,7 @@ app.get("/api/stats", (req, res) => {
    ARRANQUE
 ===================================================== */
 const PORT = process.env.PORT || 3000;
-
-// Exportar para Vercel
-module.exports = app;
-
-// Escuchar localmente en desarrollo
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`\n🎪 EventMind Server corriendo en http://localhost:${PORT}`);
-    console.log(`   Abre index.html en tu navegador o visita http://localhost:${PORT}/index.html\n`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`\n🎪 EventMind Server corriendo en http://localhost:${PORT}`);
+  console.log(`   Abre index.html en tu navegador o visita http://localhost:${PORT}/index.html\n`);
+});
