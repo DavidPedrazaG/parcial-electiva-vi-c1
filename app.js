@@ -10,7 +10,6 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { LocalStorage } from "node-localstorage";
 
 dotenv.config();
 
@@ -19,7 +18,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const localStorage = new LocalStorage(path.join(__dirname, ".localstorage"));
+// Servir el frontend estático desde la misma carpeta
+app.use(express.static(__dirname));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -29,11 +29,6 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const historyPath = "./chat_history.json";
 const recursosPath = "./recursos.json";
 const eventosPath = "./eventos.json";
-const STORAGE_KEYS = {
-  history: "eventmind:history",
-  recursos: "eventmind:recursos",
-  eventos: "eventmind:eventos"
-};
 
 /* =====================================================
    FUNCIONES AUXILIARES DE ARCHIVOS
@@ -43,36 +38,55 @@ function loadJSON(filePath, defaultValue) {
   return JSON.parse(fs.readFileSync(filePath, "utf-8"));
 }
 
-function loadFromStorage(key, defaultValue) {
-  const raw = localStorage.getItem(key);
-  if (!raw) return defaultValue;
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return defaultValue;
-  }
+function loadInitialStateFromJSON() {
+  return {
+    history: loadJSON(historyPath, {
+      messages: [],
+      params: { temperature: 0.3 },
+      total_tokens_acumulados: 0
+    }),
+    recursos: loadJSON(recursosPath, []),
+    eventos: loadJSON(eventosPath, [])
+  };
 }
 
-function saveToStorage(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
+function normalizeState(rawState) {
+  const defaults = loadInitialStateFromJSON();
+  const state = rawState || {};
+
+  return {
+    history: {
+      messages: Array.isArray(state.history?.messages) ? state.history.messages : defaults.history.messages,
+      params: {
+        temperature: Number.isFinite(state.history?.params?.temperature)
+          ? state.history.params.temperature
+          : defaults.history.params.temperature
+      },
+      total_tokens_acumulados: Number.isFinite(state.history?.total_tokens_acumulados)
+        ? state.history.total_tokens_acumulados
+        : defaults.history.total_tokens_acumulados
+    },
+    recursos: Array.isArray(state.recursos) ? state.recursos : defaults.recursos,
+    eventos: Array.isArray(state.eventos) ? state.eventos : defaults.eventos
+  };
 }
 
-function initializeStorageFromJSON() {
-  const historyFromFile = loadJSON(historyPath, {
+function buildStats(state) {
+  return {
+    total_tokens: state.history.total_tokens_acumulados || 0,
+    total_mensajes: state.history.messages.length,
+    total_eventos: state.eventos.length,
+    total_recursos: state.recursos.length
+  };
+}
+
+function defaultHistory() {
+  return {
     messages: [],
     params: { temperature: 0.3 },
     total_tokens_acumulados: 0
-  });
-  const recursosFromFile = loadJSON(recursosPath, []);
-  const eventosFromFile = loadJSON(eventosPath, []);
-
-  saveToStorage(STORAGE_KEYS.history, historyFromFile);
-  saveToStorage(STORAGE_KEYS.recursos, recursosFromFile);
-  saveToStorage(STORAGE_KEYS.eventos, eventosFromFile);
+  };
 }
-
-initializeStorageFromJSON();
 
 /* =====================================================
    DEFINICIÓN DE HERRAMIENTAS
@@ -168,46 +182,36 @@ const herramientasEventMind = {
    IMPLEMENTACIÓN DE LAS HERRAMIENTAS
 ===================================================== */
 const executableTools = {
-  registrarRecurso: (args) => {
-    const recursos = loadFromStorage(STORAGE_KEYS.recursos, []);
-    recursos.push({ ...args });
-    saveToStorage(STORAGE_KEYS.recursos, recursos);
+  registrarRecurso: (args, state) => {
+    state.recursos.push({ ...args });
     return { status: "success", message: "Recurso registrado correctamente." };
   },
 
-  registrarEvento: (args) => {
-    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
-    eventos.push({ ...args, recursos_asignados: [] });
-    saveToStorage(STORAGE_KEYS.eventos, eventos);
+  registrarEvento: (args, state) => {
+    state.eventos.push({ ...args, recursos_asignados: [] });
     return { status: "success", message: "Evento registrado correctamente." };
   },
 
-  asignarRecursoEvento: (args) => {
-    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
-    const recursos = loadFromStorage(STORAGE_KEYS.recursos, []);
-    const evento = eventos.find(e => e.nombre === args.evento);
-    const recurso = recursos.find(r => r.nombre === args.recurso);
+  asignarRecursoEvento: (args, state) => {
+    const evento = state.eventos.find(e => e.nombre === args.evento);
+    const recurso = state.recursos.find(r => r.nombre === args.recurso);
     if (!evento || !recurso) return { status: "error", message: "Evento o recurso no encontrado." };
     if (recurso.cantidad < args.cantidad) return { status: "error", message: "Cantidad insuficiente de recurso." };
     recurso.cantidad -= args.cantidad;
     evento.recursos_asignados.push({ nombre: recurso.nombre, cantidad: args.cantidad, costo_unitario: recurso.costo_unitario });
-    saveToStorage(STORAGE_KEYS.eventos, eventos);
-    saveToStorage(STORAGE_KEYS.recursos, recursos);
     return { status: "success", message: "Recurso asignado correctamente." };
   },
 
-  calcularCostoEvento: (args) => {
-    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
-    const evento = eventos.find(e => e.nombre === args.evento);
+  calcularCostoEvento: (args, state) => {
+    const evento = state.eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let total = 0;
     evento.recursos_asignados.forEach(r => { total += r.cantidad * r.costo_unitario; });
     return { status: "success", costo_total: total };
   },
 
-  analizarRiesgoLogistico: (args) => {
-    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
-    const evento = eventos.find(e => e.nombre === args.evento);
+  analizarRiesgoLogistico: (args, state) => {
+    const evento = state.eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let riesgo = 0;
     if (evento.ubicacion.toLowerCase() === "exterior") riesgo += 20;
@@ -219,9 +223,8 @@ const executableTools = {
     return { status: "success", nivel_riesgo: nivel, porcentaje_riesgo: riesgo };
   },
 
-  generarProyeccionFinanciera: (args) => {
-    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
-    const evento = eventos.find(e => e.nombre === args.evento);
+  generarProyeccionFinanciera: (args, state) => {
+    const evento = state.eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let costo_total = 0;
     evento.recursos_asignados.forEach(r => { costo_total += r.cantidad * r.costo_unitario; });
@@ -230,16 +233,14 @@ const executableTools = {
     return { status: "success", costo_total, ingresos_estimados: ingresos, margen_proyectado: margen };
   },
 
-  listarEventos: () => {
-    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
-    if (eventos.length === 0) return { status: "success", message: "No hay eventos registrados." };
-    return { status: "success", total_eventos: eventos.length, eventos };
+  listarEventos: (_, state) => {
+    if (state.eventos.length === 0) return { status: "success", message: "No hay eventos registrados." };
+    return { status: "success", total_eventos: state.eventos.length, eventos: state.eventos };
   },
 
-  listarRecursos: () => {
-    const recursos = loadFromStorage(STORAGE_KEYS.recursos, []);
-    if (recursos.length === 0) return { status: "success", message: "No hay recursos registrados." };
-    return { status: "success", total_recursos: recursos.length, recursos };
+  listarRecursos: (_, state) => {
+    if (state.recursos.length === 0) return { status: "success", message: "No hay recursos registrados." };
+    return { status: "success", total_recursos: state.recursos.length, recursos: state.recursos };
   }
 };
 
@@ -258,25 +259,12 @@ Responde siempre en español, de forma clara y profesional. Tras ejecutar una he
 /* =====================================================
    HISTORIAL
 ===================================================== */
-function loadHistory() {
-  return loadFromStorage(STORAGE_KEYS.history, {
-    messages: [],
-    params: { temperature: 0.3 },
-    total_tokens_acumulados: 0
-  });
-}
-function saveHistory(data) {
-  saveToStorage(STORAGE_KEYS.history, data);
-}
-
-/* =====================================================
-   ENDPOINT POST /api/chat
-===================================================== */
 app.post("/api/chat", async (req, res) => {
-  const { message } = req.body;
+  const { message, state: incomingState } = req.body;
   if (!message) return res.status(400).json({ error: "Mensaje requerido." });
 
-  const data = loadHistory();
+  const state = normalizeState(incomingState);
+  const data = state.history || defaultHistory();
   let totalEntrada = 0;
   let totalSalida = 0;
 
@@ -304,7 +292,13 @@ app.post("/api/chat", async (req, res) => {
     if (call) {
       const { name, args } = call.functionCall;
       toolUsed = name;
-      const toolResult = executableTools[name](args);
+      const toolHandler = executableTools[name];
+
+      if (!toolHandler) {
+        return res.status(400).json({ error: `Herramienta no implementada: ${name}` });
+      }
+
+      const toolResult = toolHandler(args, state);
 
       const secondResponse = await chatSession.sendMessage([{
         functionResponse: { name, response: toolResult }
@@ -320,12 +314,14 @@ app.post("/api/chat", async (req, res) => {
     data.messages.push({ role: "user", content: message });
     data.messages.push({ role: "model", content: finalResponseText });
     data.total_tokens_acumulados = (data.total_tokens_acumulados || 0) + totalEntrada + totalSalida;
-    saveHistory(data);
+    state.history = data;
 
     res.json({
       reply: finalResponseText,
       tokens: { entrada: totalEntrada, salida: totalSalida },
-      toolUsed
+      toolUsed,
+      state,
+      stats: buildStats(state)
     });
 
   } catch (err) {
@@ -334,19 +330,9 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-/* =====================================================
-   ENDPOINT GET /api/stats  (tokens acumulados)
-===================================================== */
-app.get("/api/stats", (req, res) => {
-  const data = loadHistory();
-  const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
-  const recursos = loadFromStorage(STORAGE_KEYS.recursos, []);
-  res.json({
-    total_tokens: data.total_tokens_acumulados || 0,
-    total_mensajes: data.messages.length,
-    total_eventos: eventos.length,
-    total_recursos: recursos.length
-  });
+app.get("/api/bootstrap", (req, res) => {
+  const state = normalizeState(loadInitialStateFromJSON());
+  res.json({ state, stats: buildStats(state) });
 });
 
 /* =====================================================

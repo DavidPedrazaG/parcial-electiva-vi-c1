@@ -477,6 +477,65 @@
 
 <script>
   const API = window.location.origin + '/api';
+  const LS_KEYS = {
+    history: 'eventmind:history',
+    recursos: 'eventmind:recursos',
+    eventos: 'eventmind:eventos'
+  };
+
+  function readLS(key, fallback) {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function writeLS(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function getClientState() {
+    return {
+      history: readLS(LS_KEYS.history, { messages: [], params: { temperature: 0.3 }, total_tokens_acumulados: 0 }),
+      recursos: readLS(LS_KEYS.recursos, []),
+      eventos: readLS(LS_KEYS.eventos, [])
+    };
+  }
+
+  function setClientState(state) {
+    if (!state) return;
+    writeLS(LS_KEYS.history, state.history || { messages: [], params: { temperature: 0.3 }, total_tokens_acumulados: 0 });
+    writeLS(LS_KEYS.recursos, Array.isArray(state.recursos) ? state.recursos : []);
+    writeLS(LS_KEYS.eventos, Array.isArray(state.eventos) ? state.eventos : []);
+  }
+
+  async function bootstrapLocalStorage() {
+    const hasAllKeys = localStorage.getItem(LS_KEYS.history)
+      && localStorage.getItem(LS_KEYS.recursos)
+      && localStorage.getItem(LS_KEYS.eventos);
+
+    if (hasAllKeys) {
+      refreshStatsFromLocal();
+      return;
+    }
+
+    try {
+      const r = await fetch(`${API}/bootstrap`);
+      const d = await r.json();
+      setClientState(d.state);
+    } catch {
+      setClientState({
+        history: { messages: [], params: { temperature: 0.3 }, total_tokens_acumulados: 0 },
+        recursos: [],
+        eventos: []
+      });
+    }
+
+    refreshStatsFromLocal();
+  }
 
   // ── Auto-resize textarea ──
   const inp = document.getElementById('userInput');
@@ -488,18 +547,17 @@
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
 
-  // ── Stats polling ──
-  async function refreshStats() {
-    try {
-      const r = await fetch(`${API}/stats`);
-      const d = await r.json();
-      document.getElementById('statTokens').textContent = d.total_tokens.toLocaleString('es-CO');
-      document.getElementById('statEventos').textContent = d.total_eventos;
-      document.getElementById('statRecursos').textContent = d.total_recursos;
-    } catch {}
+  // ── Stats desde localStorage ──
+  function refreshStatsFromLocal() {
+    const state = getClientState();
+    const totalTokens = state.history?.total_tokens_acumulados || 0;
+    const totalEventos = Array.isArray(state.eventos) ? state.eventos.length : 0;
+    const totalRecursos = Array.isArray(state.recursos) ? state.recursos.length : 0;
+
+    document.getElementById('statTokens').textContent = totalTokens.toLocaleString('es-CO');
+    document.getElementById('statEventos').textContent = totalEventos;
+    document.getElementById('statRecursos').textContent = totalRecursos;
   }
-  refreshStats();
-  setInterval(refreshStats, 8000);
 
   // ── Helpers ──
   function timeNow() {
@@ -625,10 +683,11 @@
     showTyping();
 
     try {
+      const currentState = getClientState();
       const res = await fetch(`${API}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ message: text, state: currentState })
       });
       const data = await res.json();
       removeTyping();
@@ -636,9 +695,10 @@
       if (data.error) {
         appendBotMsg('⚠️ ' + data.error, null, null);
       } else {
+        setClientState(data.state);
         appendBotMsg(data.reply, data.tokens, data.toolUsed);
         logTool(data.toolUsed);
-        refreshStats();
+        refreshStatsFromLocal();
       }
     } catch (err) {
       removeTyping();
@@ -653,6 +713,8 @@
     document.getElementById('userInput').value = text;
     sendMessage();
   }
+
+  bootstrapLocalStorage();
 </script>
 </body>
 </html>
