@@ -18,9 +18,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Servir el frontend estático desde la misma carpeta
-app.use(express.static(__dirname));
-
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /* =====================================================
@@ -311,10 +308,6 @@ app.get("/api/stats", (req, res) => {
     total_eventos: eventos.length,
     total_recursos: recursos.length
   });
-});
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 /* =====================================================
