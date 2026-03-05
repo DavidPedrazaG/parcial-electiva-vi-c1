@@ -7,10 +7,26 @@
     {
       "role": "model",
       "content": "¡Hola! Soy EventMind, tu asistente experto en planificación y análisis operativo de eventos en vivo. Puedo ayudarte con las siguientes tareas:\n\n*   **Registrar recursos:** Puedes registrar cualquier recurso logístico que necesites para tus eventos, como personal, equipos, etc., especificando su nombre, tipo, cantidad y costo unitario.\n*   **Crear eventos:** Puedo registrar tus eventos, incluyendo su nombre, tipo, número de asistentes esperados, duración y ubicación.\n*   **Asignar recursos a eventos:** Una vez que tengas recursos y eventos registrados, puedo asignar los recursos necesarios a cada evento.\n*   **Calcular costos de eventos:** Puedo calcular el costo total de un evento basándome en los recursos que le hayas asignado.\n*   **Analizar riesgos logísticos:** Te proporcionaré un análisis del nivel de riesgo logístico para un evento específico.\n*   **Generar proyecciones financieras:** Puedo crear una proyección financiera básica para tu evento, considerando el precio de la entrada.\n*   **Listar eventos y recursos:** También puedo mostrarte un listado de todos los eventos y recursos que tienes registrados en el sistema.\n\n¿En qué te gustaría que te ayude hoy?"
+    },
+    {
+      "role": "user",
+      "content": "Lista todos los recursos disponibles"
+    },
+    {
+      "role": "model",
+      "content": "¡Claro! Aquí tienes la lista de todos los recursos disponibles en el sistema:\n\n*   **Sillas:** 500 unidades, tipo mobiliario, con un costo unitario de 10,000.\n*   **Sillas:** 1000 unidades, tipo Mobiliario, con un costo unitario de 20,000.\n*   **Micrófonos:** 50 unidades, tipo Técnico, con un costo unitario de 1,500.\n\nHay un total de 3 recursos registrados."
+    },
+    {
+      "role": "user",
+      "content": "Explícame cómo registrar un recurso"
+    },
+    {
+      "role": "model",
+      "content": "Para registrar un nuevo recurso, necesitas proporcionarme la siguiente información:\n\n1.  **Nombre del recurso:** Un nombre descriptivo para el recurso (por ejemplo, \"Sillas\", \"Personal de seguridad\", \"Equipo de sonido\").\n2.  **Tipo de recurso:** La categoría a la que pertenece el recurso (por ejemplo, \"Mobiliario\", \"Personal\", \"Técnico\", \"Transporte\").\n3.  **Cantidad:** El número total de unidades de este recurso que tienes disponibles.\n4.  **Costo unitario:** El costo por cada unidad de este recurso.\n\nUna vez que tengas esta información, puedo usar la herramienta `registrarRecurso` para añadirlo al sistema. Por ejemplo, si quisieras registrar 200 \"Mesas\" de tipo \"Mobiliario\" con un costo unitario de 5000, me dirías algo como: \"Quiero registrar 200 mesas de tipo mobiliario con un costo unitario de 5000\"."
     }
   ],
   "params": {
     "temperature": 0.3
   },
-  "total_tokens_acumulados": 55833
+  "total_tokens_acumulados": 58985
 }
