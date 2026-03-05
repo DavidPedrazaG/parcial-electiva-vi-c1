@@ -10,6 +10,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { LocalStorage } from "node-localstorage";
 
 dotenv.config();
 
@@ -17,6 +18,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const localStorage = new LocalStorage(path.join(__dirname, ".localstorage"));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -26,6 +29,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const historyPath = "./chat_history.json";
 const recursosPath = "./recursos.json";
 const eventosPath = "./eventos.json";
+const STORAGE_KEYS = {
+  history: "eventmind:history",
+  recursos: "eventmind:recursos",
+  eventos: "eventmind:eventos"
+};
 
 /* =====================================================
    FUNCIONES AUXILIARES DE ARCHIVOS
@@ -35,9 +43,36 @@ function loadJSON(filePath, defaultValue) {
   return JSON.parse(fs.readFileSync(filePath, "utf-8"));
 }
 
-function saveJSON(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+function loadFromStorage(key, defaultValue) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return defaultValue;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return defaultValue;
+  }
 }
+
+function saveToStorage(key, data) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function initializeStorageFromJSON() {
+  const historyFromFile = loadJSON(historyPath, {
+    messages: [],
+    params: { temperature: 0.3 },
+    total_tokens_acumulados: 0
+  });
+  const recursosFromFile = loadJSON(recursosPath, []);
+  const eventosFromFile = loadJSON(eventosPath, []);
+
+  saveToStorage(STORAGE_KEYS.history, historyFromFile);
+  saveToStorage(STORAGE_KEYS.recursos, recursosFromFile);
+  saveToStorage(STORAGE_KEYS.eventos, eventosFromFile);
+}
+
+initializeStorageFromJSON();
 
 /* =====================================================
    DEFINICIÓN DE HERRAMIENTAS
@@ -134,35 +169,35 @@ const herramientasEventMind = {
 ===================================================== */
 const executableTools = {
   registrarRecurso: (args) => {
-    const recursos = loadJSON(recursosPath, []);
+    const recursos = loadFromStorage(STORAGE_KEYS.recursos, []);
     recursos.push({ ...args });
-    saveJSON(recursosPath, recursos);
+    saveToStorage(STORAGE_KEYS.recursos, recursos);
     return { status: "success", message: "Recurso registrado correctamente." };
   },
 
   registrarEvento: (args) => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
     eventos.push({ ...args, recursos_asignados: [] });
-    saveJSON(eventosPath, eventos);
+    saveToStorage(STORAGE_KEYS.eventos, eventos);
     return { status: "success", message: "Evento registrado correctamente." };
   },
 
   asignarRecursoEvento: (args) => {
-    const eventos = loadJSON(eventosPath, []);
-    const recursos = loadJSON(recursosPath, []);
+    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
+    const recursos = loadFromStorage(STORAGE_KEYS.recursos, []);
     const evento = eventos.find(e => e.nombre === args.evento);
     const recurso = recursos.find(r => r.nombre === args.recurso);
     if (!evento || !recurso) return { status: "error", message: "Evento o recurso no encontrado." };
     if (recurso.cantidad < args.cantidad) return { status: "error", message: "Cantidad insuficiente de recurso." };
     recurso.cantidad -= args.cantidad;
     evento.recursos_asignados.push({ nombre: recurso.nombre, cantidad: args.cantidad, costo_unitario: recurso.costo_unitario });
-    saveJSON(eventosPath, eventos);
-    saveJSON(recursosPath, recursos);
+    saveToStorage(STORAGE_KEYS.eventos, eventos);
+    saveToStorage(STORAGE_KEYS.recursos, recursos);
     return { status: "success", message: "Recurso asignado correctamente." };
   },
 
   calcularCostoEvento: (args) => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
     const evento = eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let total = 0;
@@ -171,7 +206,7 @@ const executableTools = {
   },
 
   analizarRiesgoLogistico: (args) => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
     const evento = eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let riesgo = 0;
@@ -185,7 +220,7 @@ const executableTools = {
   },
 
   generarProyeccionFinanciera: (args) => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
     const evento = eventos.find(e => e.nombre === args.evento);
     if (!evento) return { status: "error", message: "Evento no encontrado." };
     let costo_total = 0;
@@ -196,13 +231,13 @@ const executableTools = {
   },
 
   listarEventos: () => {
-    const eventos = loadJSON(eventosPath, []);
+    const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
     if (eventos.length === 0) return { status: "success", message: "No hay eventos registrados." };
     return { status: "success", total_eventos: eventos.length, eventos };
   },
 
   listarRecursos: () => {
-    const recursos = loadJSON(recursosPath, []);
+    const recursos = loadFromStorage(STORAGE_KEYS.recursos, []);
     if (recursos.length === 0) return { status: "success", message: "No hay recursos registrados." };
     return { status: "success", total_recursos: recursos.length, recursos };
   }
@@ -224,10 +259,14 @@ Responde siempre en español, de forma clara y profesional. Tras ejecutar una he
    HISTORIAL
 ===================================================== */
 function loadHistory() {
-  return loadJSON(historyPath, { messages: [], params: { temperature: 0.3 }, total_tokens_acumulados: 0 });
+  return loadFromStorage(STORAGE_KEYS.history, {
+    messages: [],
+    params: { temperature: 0.3 },
+    total_tokens_acumulados: 0
+  });
 }
 function saveHistory(data) {
-  saveJSON(historyPath, data);
+  saveToStorage(STORAGE_KEYS.history, data);
 }
 
 /* =====================================================
@@ -300,8 +339,8 @@ app.post("/api/chat", async (req, res) => {
 ===================================================== */
 app.get("/api/stats", (req, res) => {
   const data = loadHistory();
-  const eventos = loadJSON(eventosPath, []);
-  const recursos = loadJSON(recursosPath, []);
+  const eventos = loadFromStorage(STORAGE_KEYS.eventos, []);
+  const recursos = loadFromStorage(STORAGE_KEYS.recursos, []);
   res.json({
     total_tokens: data.total_tokens_acumulados || 0,
     total_mensajes: data.messages.length,
